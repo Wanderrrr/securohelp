@@ -1,0 +1,369 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================
+// MODELE DANYCH - SECURO HELP
+// =====================================================
+
+model User {
+  id               String    @id @default(uuid()) @db.Uuid
+  email            String    @unique
+  passwordHash     String    @map("password_hash")
+  firstName        String    @map("first_name")
+  lastName         String    @map("last_name")
+  phone            String?
+  role             UserRole
+  isActive         Boolean   @default(true) @map("is_active")
+  twoFaEnabled     Boolean   @default(false) @map("two_fa_enabled")
+  twoFaSecret      String?   @map("two_fa_secret")
+  lastLogin        DateTime? @map("last_login")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  createdByUserId  String?   @map("created_by") @db.Uuid
+  updatedByUserId  String?   @map("updated_by") @db.Uuid
+
+  // Relations
+  createdBy        User?     @relation("UserCreatedBy", fields: [createdByUserId], references: [id])
+  createdUsers     User[]    @relation("UserCreatedBy")
+  updatedBy        User?     @relation("UserUpdatedBy", fields: [updatedByUserId], references: [id])
+  updatedUsers     User[]    @relation("UserUpdatedBy")
+  
+  assignedClients  Client[]  @relation("ClientAssignedAgent")
+  createdClients   Client[]  @relation("ClientCreatedBy")
+  updatedClients   Client[]  @relation("ClientUpdatedBy")
+  deletedClients   Client[]  @relation("ClientDeletedBy")
+  
+  assignedCases    Case[]    @relation("CaseAssignedAgent")
+  createdCases     Case[]    @relation("CaseCreatedBy")
+  updatedCases     Case[]    @relation("CaseUpdatedBy")
+  deletedCases     Case[]    @relation("CaseDeletedBy")
+  
+  statusChanges    CaseStatusHistory[]
+  uploadedDocuments Document[] @relation("DocumentUploadedBy")
+  deletedDocuments Document[] @relation("DocumentDeletedBy")
+  
+  createdNotes     Note[]    @relation("NoteCreatedBy")
+  deletedNotes     Note[]    @relation("NoteDeletedBy")
+  
+  assignedTasks    Task[]    @relation("TaskAssignedTo")
+  createdTasks     Task[]    @relation("TaskCreatedBy")
+  deletedTasks     Task[]    @relation("TaskDeletedBy")
+  
+  auditLogs        AuditLog[]
+  sessions         UserSession[]
+
+  @@map("users")
+}
+
+model Client {
+  id                String    @id @default(uuid()) @db.Uuid
+  firstName         String    @map("first_name")
+  lastName          String    @map("last_name")
+  email             String?
+  phone             String?
+  pesel             String?   // Nowe pole na PESEL
+  idNumber          String?   @map("idNumber") // Nowe pole na numer dowodu 
+  street            String?   // Nowe pole na ulicę
+  houseNumber       String?   @map("house_number")
+  apartmentNumber   String?   @map("apartment_number")
+  postalCode        String?   @map("postal_code")
+  city              String
+  clientNotes       String?   @map("notes")
+  gdprConsent       Boolean   @default(false) @map("gdpr_consent")
+  gdprConsentDate      DateTime? @map("gdpr_consent_date")
+  marketingConsent     Boolean   @default(false) @map("marketing_consent")
+  assignedAgentId      String?   @map("assigned_agent_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  createdByUserId      String    @map("created_by") @db.Uuid
+  updatedByUserId      String?   @map("updated_by") @db.Uuid
+  deletedAt            DateTime? @map("deleted_at")
+  deletedByUserId      String?   @map("deleted_by") @db.Uuid
+
+  // Relations
+  assignedAgent        User?     @relation("ClientAssignedAgent", fields: [assignedAgentId], references: [id])
+  createdBy            User      @relation("ClientCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy            User?     @relation("ClientUpdatedBy", fields: [updatedByUserId], references: [id])
+  deletedBy            User?     @relation("ClientDeletedBy", fields: [deletedByUserId], references: [id])
+  
+  cases                Case[]
+  documents            Document[]
+  notes                Note[]
+  tasks                Task[]
+
+  @@map("clients")
+}
+
+model CaseStatus {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  name        String
+  description String?
+  color       String?
+  sortOrder   Int       @default(0) @map("sort_order")
+  isFinal     Boolean   @default(false) @map("is_final")
+  isActive    Boolean   @default(true) @map("is_active")
+
+  // Relations
+  cases       Case[]
+  fromStatusChanges CaseStatusHistory[] @relation("FromStatus")
+  toStatusChanges   CaseStatusHistory[] @relation("ToStatus")
+
+  @@map("case_statuses")
+}
+
+model InsuranceCompany {
+  id            Int       @id @default(autoincrement())
+  code          String    @unique
+  name          String
+  shortName     String?   @map("short_name")
+  nip           String?
+  address       String?
+  email         String?
+  phone         String?
+  contactPerson String?   @map("contact_person")
+  companyNotes  String?   @map("notes")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  cases         Case[]
+
+  @@map("insurance_companies")
+}
+
+model Case {
+  id                    String    @id @default(uuid()) @db.Uuid
+  caseNumber            String    @unique @map("case_number")
+  clientId              String    @map("client_id") @db.Uuid
+  insuranceCompanyId    Int?      @map("insurance_company_id")
+  statusId              Int       @default(1) @map("status_id")
+  assignedAgentId       String?   @map("assigned_agent_id") @db.Uuid
+  incidentDate          DateTime  @map("incident_date") @db.Date
+  policyNumber          String?   @map("policy_number")
+  claimNumber           String?   @map("claim_number")
+  claimValue            Decimal?  @map("claim_value") @db.Decimal(12, 2)
+  compensationReceived  Decimal?  @map("compensation_received") @db.Decimal(12, 2)
+  incidentDescription   String?   @map("incident_description")
+  incidentLocation      String?   @map("incident_location")
+  vehicleBrand          String?   @map("vehicle_brand")
+  vehicleModel          String?   @map("vehicle_model")
+  vehicleRegistration   String?   @map("vehicle_registration")
+  vehicleYear           Int?      @map("vehicle_year")
+  internalNotes         String?   @map("internal_notes")
+  documentsSentDate     DateTime? @map("documents_sent_date") @db.Date
+  decisionDate          DateTime? @map("decision_date") @db.Date
+  appealDate            DateTime? @map("appeal_date") @db.Date
+  lawsuitDate           DateTime? @map("lawsuit_date") @db.Date
+  closedDate            DateTime? @map("closed_date") @db.Date
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  createdByUserId       String    @map("created_by") @db.Uuid
+  updatedByUserId       String?   @map("updated_by") @db.Uuid
+  deletedAt             DateTime? @map("deleted_at")
+  deletedByUserId       String?   @map("deleted_by") @db.Uuid
+
+  // Relations
+  client                Client      @relation(fields: [clientId], references: [id])
+  insuranceCompany      InsuranceCompany? @relation(fields: [insuranceCompanyId], references: [id])
+  status                CaseStatus  @relation(fields: [statusId], references: [id])
+  assignedAgent         User?       @relation("CaseAssignedAgent", fields: [assignedAgentId], references: [id])
+  createdBy             User        @relation("CaseCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy             User?       @relation("CaseUpdatedBy", fields: [updatedByUserId], references: [id])
+  deletedBy             User?       @relation("CaseDeletedBy", fields: [deletedByUserId], references: [id])
+  
+  statusHistory         CaseStatusHistory[]
+  documents             Document[]
+  notes                 Note[]
+  tasks                 Task[]
+
+  @@map("cases")
+}
+
+model CaseStatusHistory {
+  id            String   @id @default(uuid()) @db.Uuid
+  caseId        String   @map("case_id") @db.Uuid
+  fromStatusId  Int?     @map("from_status_id")
+  toStatusId    Int      @map("to_status_id")
+  comment       String?
+  changedAt     DateTime @default(now()) @map("changed_at")
+  changedByUserId String @map("changed_by") @db.Uuid
+
+  // Relations
+  case          Case       @relation(fields: [caseId], references: [id])
+  fromStatus    CaseStatus? @relation("FromStatus", fields: [fromStatusId], references: [id])
+  toStatus      CaseStatus @relation("ToStatus", fields: [toStatusId], references: [id])
+  changedBy     User       @relation(fields: [changedByUserId], references: [id])
+
+  @@map("case_status_history")
+}
+
+model DocumentCategory {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  name        String
+  description String?
+  required    Boolean   @default(false)
+  sortOrder   Int       @default(0) @map("sort_order")
+  isActive    Boolean   @default(true) @map("is_active")
+
+  // Relations
+  documents   Document[]
+
+  @@map("document_categories")
+}
+
+model Document {
+  id                 String    @id @default(uuid()) @db.Uuid
+  caseId             String    @map("case_id") @db.Uuid
+  clientId           String    @map("client_id") @db.Uuid
+  categoryId         Int       @map("category_id")
+  fileName           String    @map("file_name")
+  originalFileName   String    @map("original_file_name")
+  filePath           String    @map("file_path")
+  fileSize           BigInt?   @map("file_size")
+  mimeType           String?   @map("mime_type")
+  fileHash           String?   @map("file_hash")
+  description        String?
+  documentDate       DateTime? @map("document_date") @db.Date
+  ocrProcessed       Boolean   @default(false) @map("ocr_processed")
+  ocrText            String?   @map("ocr_text")
+  ocrProcessedAt     DateTime? @map("ocr_processed_at")
+  uploadedAt         DateTime  @default(now()) @map("uploaded_at")
+  uploadedByUserId   String    @map("uploaded_by") @db.Uuid
+  deletedAt          DateTime? @map("deleted_at")
+  deletedByUserId    String?   @map("deleted_by") @db.Uuid
+
+  // Relations
+  case               Case             @relation(fields: [caseId], references: [id])
+  client             Client           @relation(fields: [clientId], references: [id])
+  category           DocumentCategory @relation(fields: [categoryId], references: [id])
+  uploadedBy         User             @relation("DocumentUploadedBy", fields: [uploadedByUserId], references: [id])
+  deletedBy          User?            @relation("DocumentDeletedBy", fields: [deletedByUserId], references: [id])
+
+  @@map("documents")
+}
+
+model Note {
+  id              String    @id @default(uuid()) @db.Uuid
+  caseId          String?   @map("case_id") @db.Uuid
+  clientId        String?   @map("client_id") @db.Uuid
+  title           String?
+  content         String
+  reminderDate    DateTime? @map("reminder_date")
+  reminderSent    Boolean   @default(false) @map("reminder_sent")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  createdByUserId String    @map("created_by") @db.Uuid
+  deletedAt       DateTime? @map("deleted_at")
+  deletedByUserId String?   @map("deleted_by") @db.Uuid
+
+  // Relations
+  case            Case?     @relation(fields: [caseId], references: [id])
+  client          Client?   @relation(fields: [clientId], references: [id])
+  createdBy       User      @relation("NoteCreatedBy", fields: [createdByUserId], references: [id])
+  deletedBy       User?     @relation("NoteDeletedBy", fields: [deletedByUserId], references: [id])
+
+  @@map("notes")
+}
+
+model Task {
+  id              String       @id @default(uuid()) @db.Uuid
+  caseId          String?      @map("case_id") @db.Uuid
+  clientId        String?      @map("client_id") @db.Uuid
+  assignedToUserId String      @map("assigned_to") @db.Uuid
+  title           String
+  description     String?
+  priority        TaskPriority @default(NORMAL)
+  status          TaskStatus   @default(TODO)
+  dueDate         DateTime?    @map("due_date") @db.Date
+  completedAt     DateTime?    @map("completed_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  createdByUserId String       @map("created_by") @db.Uuid
+  deletedAt       DateTime?    @map("deleted_at")
+  deletedByUserId String?      @map("deleted_by") @db.Uuid
+
+  // Relations
+  case            Case?        @relation(fields: [caseId], references: [id])
+  client          Client?      @relation(fields: [clientId], references: [id])
+  assignedTo      User         @relation("TaskAssignedTo", fields: [assignedToUserId], references: [id])
+  createdBy       User         @relation("TaskCreatedBy", fields: [createdByUserId], references: [id])
+  deletedBy       User?        @relation("TaskDeletedBy", fields: [deletedByUserId], references: [id])
+
+  @@map("tasks")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  action      String
+  timestamp   DateTime @default(now())
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id") @db.Uuid
+  changes     Json?
+  ipAddress   String?  @map("ip_address") @db.Inet
+  userAgent   String?  @map("user_agent")
+  logNotes    String?  @map("notes")
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model UserSession {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  tokenHash   String    @unique @map("token_hash")
+  ipAddress   String?   @map("ip_address") @db.Inet
+  userAgent   String?   @map("user_agent")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  expiresAt   DateTime  @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@map("user_sessions")
+}
+
+// =====================================================
+// ENUMS
+// =====================================================
+
+enum UserRole {
+  ADMIN
+  AGENT
+  ASSISTANT
+  ACCOUNTANT
+
+  @@map("user_role")
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+
+  @@map("task_priority")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+
+  @@map("task_status")
+}
