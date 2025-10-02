@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth-helpers';
-import { mockDataStore } from '@/lib/mock-data';
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +12,20 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    const clients = mockDataStore.clients.getAll();
+    const supabase = getSupabaseServer();
+    const { data: clients, error } = await supabase
+      .from('clients')
+      .select('*')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Clients fetch error:', error);
+      return NextResponse.json({
+        success: false,
+        error: 'Błąd pobierania klientów'
+      }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
@@ -40,25 +53,38 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const newClient = mockDataStore.clients.create({
-      first_name: body.firstName,
-      last_name: body.lastName,
-      email: body.email || null,
-      phone: body.phone || null,
-      pesel: body.pesel || null,
-      id_number: body.idNumber || null,
-      street: body.street || null,
-      house_number: body.houseNumber || null,
-      apartment_number: body.apartmentNumber || null,
-      postal_code: body.postalCode || null,
-      city: body.city,
-      notes: body.notes || null,
-      gdpr_consent: body.gdprConsent || false,
-      gdpr_consent_date: body.gdprConsent ? new Date().toISOString() : null,
-      marketing_consent: body.marketingConsent || false,
-      assigned_agent_id: body.assignedAgentId || null,
-      created_by: user.id,
-    });
+    const supabase = getSupabaseServer();
+    const { data: newClient, error } = await supabase
+      .from('clients')
+      .insert({
+        first_name: body.firstName,
+        last_name: body.lastName,
+        email: body.email || null,
+        phone: body.phone || null,
+        pesel: body.pesel || null,
+        id_number: body.idNumber || null,
+        street: body.street || null,
+        house_number: body.houseNumber || null,
+        apartment_number: body.apartmentNumber || null,
+        postal_code: body.postalCode || null,
+        city: body.city,
+        notes: body.notes || null,
+        gdpr_consent: body.gdprConsent || false,
+        gdpr_consent_date: body.gdprConsent ? new Date().toISOString() : null,
+        marketing_consent: body.marketingConsent || false,
+        assigned_agent_id: body.assignedAgentId || null,
+        created_by: user.id,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Client creation error:', error);
+      return NextResponse.json({
+        success: false,
+        error: 'Błąd tworzenia klienta'
+      }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,

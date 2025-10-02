@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth-helpers';
-import { mockDataStore } from '@/lib/mock-data';
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,7 +9,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const companies = mockDataStore.insuranceCompanies.getAll();
+    const supabase = getSupabaseServer();
+    const { data: companies, error } = await supabase
+      .from('insurance_companies')
+      .select('*')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Insurance companies fetch error:', error);
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(companies);
 

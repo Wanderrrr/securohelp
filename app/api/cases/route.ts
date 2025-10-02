@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth-helpers';
-import { mockDataStore } from '@/lib/mock-data';
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +12,20 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    const cases = mockDataStore.cases.getAll();
+    const supabase = getSupabaseServer();
+    const { data: cases, error } = await supabase
+      .from('cases')
+      .select('*')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Cases fetch error:', error);
+      return NextResponse.json({
+        success: false,
+        error: 'Błąd pobierania spraw'
+      }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
@@ -42,17 +55,30 @@ export async function POST(request: NextRequest) {
 
     const caseNumber = `${new Date().getFullYear()}/${String(Date.now()).slice(-6)}`;
 
-    const newCase = mockDataStore.cases.create({
-      case_number: caseNumber,
-      client_id: body.clientId,
-      insurance_company_id: body.insuranceCompanyId || null,
-      status_id: body.statusId || '1',
-      assigned_agent_id: body.assignedAgentId || user.id,
-      accident_date: body.incidentDate,
-      accident_description: body.incidentDescription || '',
-      notes: body.internalNotes || null,
-      created_by: user.id,
-    });
+    const supabase = getSupabaseServer();
+    const { data: newCase, error } = await supabase
+      .from('cases')
+      .insert({
+        case_number: caseNumber,
+        client_id: body.clientId,
+        insurance_company_id: body.insuranceCompanyId || null,
+        status_id: body.statusId || 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+        assigned_agent_id: body.assignedAgentId || user.id,
+        accident_date: body.incidentDate,
+        accident_description: body.incidentDescription || '',
+        notes: body.internalNotes || null,
+        created_by: user.id,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Case creation error:', error);
+      return NextResponse.json({
+        success: false,
+        error: 'Błąd tworzenia sprawy'
+      }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateMockUser, generateMockToken } from '@/lib/mock-auth';
+import { getSupabaseServer } from '@/lib/supabase-server';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,21 +15,49 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const user = authenticateMockUser(email, password);
+    const supabase = getSupabaseServer();
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .eq('is_active', true)
+      .maybeSingle();
 
-    if (!user) {
+    if (error || !user) {
       return NextResponse.json({
         success: false,
         error: 'Nieprawidłowe dane logowania'
       }, { status: 401 });
     }
 
-    const token = generateMockToken(user.id);
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+
+    if (!isValidPassword) {
+      return NextResponse.json({
+        success: false,
+        error: 'Nieprawidłowe dane logowania'
+      }, { status: 401 });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '7d' }
+    );
+
+    const userWithoutPassword = {
+      id: user.id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      role: user.role,
+      is_active: user.is_active,
+    };
 
     const response = NextResponse.json({
       success: true,
       data: {
-        user,
+        user: userWithoutPassword,
         session: {
           access_token: token,
           refresh_token: token,
