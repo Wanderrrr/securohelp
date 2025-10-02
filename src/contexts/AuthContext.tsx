@@ -69,7 +69,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const checkAuth = async (): Promise<void> => {
     try {
-      const response = await fetch('/api/auth/me');
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      // Check if response is ok and content type is JSON
+      if (!response.ok) {
+        console.error('Auth check failed:', response.status, response.statusText);
+        setUser(null);
+        return;
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Auth check failed: Expected JSON, got:', contentType);
+        setUser(null);
+        return;
+      }
+      
       const data: ApiResponse = await response.json();
 
       if (data.success && data.data) {
@@ -79,6 +98,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     } catch (error) {
       console.error('Auth check error:', error);
+      // In development, if API is not available, don't block the app
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Auth API not available in development mode');
+      }
       setUser(null);
     } finally {
       setLoading(false);
