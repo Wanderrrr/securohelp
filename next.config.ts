@@ -9,11 +9,6 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ['pdf-parse', 'sharp'],
   poweredByHeader: false,
-  experimental: {
-    serverActions: {
-      allowedOrigins: ['localhost:3000', 'localhost:3001', 'localhost:3002']
-    },
-  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
