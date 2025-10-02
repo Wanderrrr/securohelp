@@ -26,6 +26,11 @@ export async function extractDocumentText(documentPath: string, mimeType: string
     if (mimeType === 'application/pdf') {
       // Try to extract PDF text using dynamic import to avoid build issues
       try {
+        // Check if file exists first
+        if (!fs.existsSync(documentPath)) {
+          return `Dokument PDF: ${path.basename(documentPath)} - plik nie istnieje`;
+        }
+        
         const pdfParse = (await import('pdf-parse')).default;
         const dataBuffer = fs.readFileSync(documentPath);
         const data = await pdfParse(dataBuffer);
@@ -36,6 +41,9 @@ export async function extractDocumentText(documentPath: string, mimeType: string
         return `Dokument PDF: ${path.basename(documentPath)} - błąd czytania PDF, możliwe skanowany dokument`;
       }
     } else if (mimeType?.startsWith('text/')) {
+      if (!fs.existsSync(documentPath)) {
+        return `Plik tekstowy: ${path.basename(documentPath)} - plik nie istnieje`;
+      }
       return fs.readFileSync(documentPath, 'utf8');
     } else if (mimeType?.startsWith('image/')) {
       // For images, return metadata for AI analysis

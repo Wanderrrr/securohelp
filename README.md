@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SecuroHelp - System Zarządzania Sprawami Ubezpieczeniowymi
 
-## Getting Started
+## Opis
+Aplikacja Next.js do zarządzania sprawami ubezpieczeniowymi, klientami i dokumentami. System umożliwia generowanie dokumentów AI na podstawie analizy kosztorysów towarzystw ubezpieczeniowych.
 
-First, run the development server:
+## Wymagania
+- Node.js 18+ 
+- PostgreSQL
+- OpenAI API Key
 
+## Instalacja
+
+1. Zainstaluj zależności:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Skonfiguruj bazę danych PostgreSQL i dodaj URL do `.env.local`:
+```bash
+DATABASE_URL="postgresql://username:password@localhost:5432/securohelp"
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Dodaj klucz OpenAI API do `.env.local`:
+```bash
+OPENAI_API_KEY="your-openai-api-key"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Uruchom migracje Prisma:
+```bash
+npx prisma migrate dev
+```
 
-## Learn More
+5. Uruchom serwer deweloperski:
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Funkcje
+- Zarządzanie klientami i sprawami
+- Upload i przeglądanie dokumentów
+- Generowanie dokumentów AI (analiza kosztorysów, odwołania)
+- System autoryzacji
+- Dashboard z statystykami
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Struktura projektu
+- `app/` - Next.js App Router
+- `src/components/` - Komponenty React
+- `src/lib/` - Biblioteki pomocnicze
+- `prisma/` - Schema bazy danych
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## API Endpoints
+- `/api/clients` - Zarządzanie klientami
+- `/api/cases` - Zarządzanie sprawami  
+- `/api/documents` - Upload i pobieranie dokumentów
+- `/api/ai-documents` - Generowanie dokumentów AI
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+Aplikacja jest skonfigurowana dla deploymentu na Bolt z `output: 'standalone'` w `next.config.ts`.
