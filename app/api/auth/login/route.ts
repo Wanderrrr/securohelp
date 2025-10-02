@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServer } from '@/lib/supabase-server';
+import { authenticateMockUser, generateMockToken } from '@/lib/mock-auth';
 
 export async function POST(request: NextRequest) {
-  const supabase = getSupabaseServer();
   try {
     const body = await request.json();
     const { email, password } = body;
@@ -14,48 +13,38 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const user = authenticateMockUser(email, password);
 
-    if (error) {
+    if (!user) {
       return NextResponse.json({
         success: false,
         error: 'Nieprawidłowe dane logowania'
       }, { status: 401 });
     }
 
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', data.user.id)
-      .maybeSingle();
-
-    if (userError || !userData) {
-      return NextResponse.json({
-        success: false,
-        error: 'Błąd pobierania danych użytkownika'
-      }, { status: 500 });
-    }
+    const token = generateMockToken(user.id);
 
     const response = NextResponse.json({
       success: true,
       data: {
-        user: userData,
-        session: data.session
+        user,
+        session: {
+          access_token: token,
+          refresh_token: token,
+          expires_at: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        }
       },
       message: 'Logowanie pomyślne'
     }, { status: 200 });
 
-    response.cookies.set('sb-access-token', data.session.access_token, {
+    response.cookies.set('sb-access-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60
     });
 
-    response.cookies.set('sb-refresh-token', data.session.refresh_token, {
+    response.cookies.set('sb-refresh-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

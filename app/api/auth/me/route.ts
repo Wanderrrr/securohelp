@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServer } from '@/lib/supabase-server';
+import { verifyMockToken, getMockUserById } from '@/lib/mock-auth';
 
 export async function GET(request: NextRequest) {
-  const supabase = getSupabaseServer();
   try {
     const accessToken = request.cookies.get('sb-access-token')?.value;
 
@@ -13,31 +12,27 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+    const tokenData = verifyMockToken(accessToken);
 
-    if (error || !user) {
+    if (!tokenData) {
       return NextResponse.json({
         success: false,
         error: 'Nieprawidłowy token'
       }, { status: 401 });
     }
 
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle();
+    const user = getMockUserById(tokenData.userId);
 
-    if (userError || !userData) {
+    if (!user) {
       return NextResponse.json({
         success: false,
-        error: 'Błąd pobierania danych użytkownika'
-      }, { status: 500 });
+        error: 'Użytkownik nie znaleziony'
+      }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
-      data: userData
+      data: user
     });
 
   } catch (error) {
