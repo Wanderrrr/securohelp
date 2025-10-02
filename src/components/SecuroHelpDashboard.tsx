@@ -1,33 +1,10 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Briefcase, 
-  FileText, 
-  Calendar,
-  Settings,
-  BarChart3,
-  Menu,
-  X,
-  Bell,
-  Search,
-  LogOut,
-  ChevronDown,
-  Shield,
-  Home,
-  CheckSquare,
-  PlusCircle,
-  AlertCircle,
-  TrendingUp,
-  Clock,
-  DollarSign,
-  Bot
-} from 'lucide-react';
+import { Users, Briefcase, FileText, Calendar, Settings, ChartBar as BarChart3, Menu, X, Bell, Search, LogOut, ChevronDown, Shield, Hop as Home, SquareCheck as CheckSquare, CirclePlus as PlusCircle, CircleAlert as AlertCircle, TrendingUp, Clock, DollarSign } from 'lucide-react';
 import ClientsModule from './ClientsModule';
 import CasesModule from './CasesModule';
 import DocumentsModule from './DocumentsModule';
-import AIDocumentsModule from './AIDocumentsModule';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -97,7 +74,6 @@ export default function SecuroHelpDashboard({ onLogout }: DashboardProps) {
     { id: 'clients', label: 'Klienci', icon: Users },
     { id: 'cases', label: 'Sprawy', icon: Briefcase },
     { id: 'documents', label: 'Dokumenty', icon: FileText },
-    { id: 'ai-documents', label: 'Dokumenty AI', icon: Bot },
     { id: 'tasks', label: 'Zadania', icon: CheckSquare },
     { id: 'calendar', label: 'Kalendarz', icon: Calendar },
     { id: 'reports', label: 'Raporty', icon: BarChart3 },
@@ -471,21 +447,14 @@ export default function SecuroHelpDashboard({ onLogout }: DashboardProps) {
               )}
 
       {activeView === 'documents' && (
-        <DocumentsModule 
-          preselectedCaseNumber={selectedCaseForDocuments}
-          onClearCaseFilter={() => setSelectedCaseForDocuments(undefined)}
-        />
-      )}
-
-      {activeView === 'ai-documents' && (
-        <AIDocumentsModule 
+        <DocumentsModule
           preselectedCaseNumber={selectedCaseForDocuments}
           onClearCaseFilter={() => setSelectedCaseForDocuments(undefined)}
         />
       )}
 
           {/* Other views */}
-          {activeView !== 'dashboard' && activeView !== 'clients' && activeView !== 'cases' && activeView !== 'documents' && activeView !== 'ai-documents' && (
+          {activeView !== 'dashboard' && activeView !== 'clients' && activeView !== 'cases' && activeView !== 'documents' && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white capitalize">{activeView}</h2>
