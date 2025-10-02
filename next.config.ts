@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   // Disable problematic features for Bolt
   poweredByHeader: false,
+  // Disable experimental features that cause issues
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['localhost:3000', 'localhost:3001', 'localhost:3002']
+    }
+  },
   // Optimize bundle
   webpack: (config, { isServer }) => {
     if (!isServer) {
