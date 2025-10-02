@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { supabase } from './supabase';
+import { getSupabaseServer } from './supabase-server';
 
 export async function getAuthUser(request: NextRequest) {
   const accessToken = request.cookies.get('sb-access-token')?.value;
@@ -8,6 +8,7 @@ export async function getAuthUser(request: NextRequest) {
     return null;
   }
 
+  const supabase = getSupabaseServer();
   const { data: { user }, error } = await supabase.auth.getUser(accessToken);
 
   if (error || !user) {

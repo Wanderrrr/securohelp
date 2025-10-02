@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase-server';
 import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
+  const supabase = getSupabaseServer();
   try {
     const user = await getAuthUser(request);
     if (!user) {
@@ -47,6 +48,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = getSupabaseServer();
   try {
     const user = await getAuthUser(request);
     if (!user) {
