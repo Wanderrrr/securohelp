@@ -1,103 +1,217 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { getAuthUser } from '@/lib/auth-helpers';
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/database'
+import { getUserFromToken } from '@/lib/auth'
+import { ClientWithRelations, ApiResponse } from '@/types/database'
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
+    const token = request.cookies.get('auth-token')?.value
+    if (!token) {
       return NextResponse.json({
         success: false,
         error: 'Brak autoryzacji'
-      }, { status: 401 });
+      } as ApiResponse, { status: 401 })
     }
 
-    const { data: clients, error } = await supabase
-      .from('clients')
-      .select(`
-        *,
-        assigned_agent:users!clients_assigned_agent_id_fkey(id, first_name, last_name, email)
-      `)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Clients fetch error:', error);
+    const user = await getUserFromToken(token)
+    if (!user) {
       return NextResponse.json({
         success: false,
-        error: 'Błąd pobierania klientów'
-      }, { status: 500 });
+        error: 'Nieprawidłowy token'
+      } as ApiResponse, { status: 401 })
     }
+
+    // Pobierz klientów z relacjami
+    const clients = await prisma.client.findMany({
+      where: {
+        deletedAt: null
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        pesel: true, // Nowe pole
+        idNumber: true, // Nowe pole
+        street: true, // Nowe pole
+        houseNumber: true,
+        apartmentNumber: true,
+        postalCode: true,
+        city: true,
+        clientNotes: true, // Dodajemy pole tekstowe notatek
+        gdprConsent: true,
+        marketingConsent: true,
+        assignedAgentId: true,
+        createdAt: true,
+        updatedAt: true,
+        assignedAgent: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        cases: {
+          where: {
+            deletedAt: null
+          },
+          include: {
+            status: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+                isFinal: true
+              }
+            },
+            insuranceCompany: {
+              select: {
+                id: true,
+                name: true,
+                shortName: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
+        notes: {
+          where: {
+            deletedAt: null
+          },
+          select: {
+            id: true,
+            title: true,
+            createdAt: true
+          }
+        },
+        tasks: {
+          where: {
+            deletedAt: null
+          },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            priority: true,
+            dueDate: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
 
     return NextResponse.json({
       success: true,
       data: clients
-    });
+    } as ApiResponse<ClientWithRelations[]>)
 
   } catch (error) {
-    console.error('Clients API error:', error);
+    console.error('Clients fetch error:', error)
     return NextResponse.json({
       success: false,
-      error: 'Błąd serwera'
-    }, { status: 500 });
+      error: 'Błąd serwera podczas pobierania klientów'
+    } as ApiResponse, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
+    const token = request.cookies.get('auth-token')?.value
+    if (!token) {
       return NextResponse.json({
         success: false,
         error: 'Brak autoryzacji'
-      }, { status: 401 });
+      } as ApiResponse, { status: 401 })
     }
 
-    const body = await request.json();
-
-    const { data: newClient, error } = await supabase
-      .from('clients')
-      .insert({
-        first_name: body.firstName,
-        last_name: body.lastName,
-        email: body.email || null,
-        phone: body.phone || null,
-        pesel: body.pesel || null,
-        id_number: body.idNumber || null,
-        street: body.street || null,
-        house_number: body.houseNumber || null,
-        apartment_number: body.apartmentNumber || null,
-        postal_code: body.postalCode || null,
-        city: body.city,
-        notes: body.notes || null,
-        gdpr_consent: body.gdprConsent || false,
-        gdpr_consent_date: body.gdprConsent ? new Date().toISOString() : null,
-        marketing_consent: body.marketingConsent || false,
-        assigned_agent_id: body.assignedAgentId || null,
-        created_by: user.id,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Client creation error:', error);
+    const user = await getUserFromToken(token)
+    if (!user) {
       return NextResponse.json({
         success: false,
-        error: 'Błąd tworzenia klienta'
-      }, { status: 500 });
+        error: 'Nieprawidłowy token'
+      } as ApiResponse, { status: 401 })
     }
+
+    const body = await request.json()
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      pesel,
+      idNumber,
+      street,
+      houseNumber,
+      apartmentNumber,
+      postalCode,
+      city,
+      notes,
+      gdprConsent,
+      marketingConsent,
+      assignedAgentId
+    } = body
+
+    // Validate required fields
+    if (!firstName || !lastName || !city || !pesel || gdprConsent === undefined) {
+      return NextResponse.json({
+        success: false,
+        error: 'Wymagane pola: imię, nazwisko, miasto, PESEL i zgoda GDPR'
+      } as ApiResponse, { status: 400 })
+    }
+
+    // Create client
+    const client = await prisma.client.create({
+      data: {
+        firstName,
+        lastName,
+        email: email || null,
+        phone: phone || null,
+        pesel: pesel || null,
+        idNumber: idNumber || null,
+        street: street || null,
+        houseNumber: houseNumber || null,
+        apartmentNumber: apartmentNumber || null,
+        postalCode: postalCode || null,
+        city,
+        clientNotes: notes || null,
+        gdprConsent,
+        gdprConsentDate: gdprConsent ? new Date() : null,
+        marketingConsent: marketingConsent || false,
+        assignedAgentId: assignedAgentId || null,
+        createdByUserId: user.id
+      },
+      include: {
+        assignedAgent: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        cases: true,
+        notes: true,
+        tasks: true
+      }
+    })
 
     return NextResponse.json({
       success: true,
-      data: newClient,
-      message: 'Klient został utworzony'
-    }, { status: 201 });
+      data: client,
+      message: 'Klient został dodany pomyślnie'
+    } as ApiResponse<ClientWithRelations>)
 
   } catch (error) {
-    console.error('Client creation API error:', error);
+    console.error('Client creation error:', error)
     return NextResponse.json({
       success: false,
-      error: 'Błąd serwera'
-    }, { status: 500 });
+      error: 'Błąd serwera podczas tworzenia klienta'
+    } as ApiResponse, { status: 500 })
   }
 }

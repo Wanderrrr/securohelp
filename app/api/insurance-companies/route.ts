@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { getAuthUser } from '@/lib/auth-helpers';
+import { prisma } from '@/lib/database';
+import { getUserFromToken } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
+    const token = request.cookies.get('auth-token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await getUserFromToken(token);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: companies, error } = await supabase
-      .from('insurance_companies')
-      .select('*')
-      .order('name', { ascending: true });
-
-    if (error) {
-      throw error;
-    }
+    const companies = await prisma.insuranceCompany.findMany({
+      orderBy: {
+        name: 'asc'
+      }
+    });
 
     return NextResponse.json(companies);
 
@@ -31,7 +33,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
+    const token = request.cookies.get('auth-token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await getUserFromToken(token);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -45,6 +52,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate unique code from name and timestamp
     const baseCode = (shortName || name)
       .toUpperCase()
       .replace(/[^A-Z0-9]/g, '')
@@ -52,11 +60,15 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now().toString().slice(-4);
     const code = `${baseCode}_${timestamp}`;
 
-    const { data: existingCompany } = await supabase
-      .from('insurance_companies')
-      .select('id')
-      .or(`name.ilike.${name},short_name.ilike.${shortName || ''}`)
-      .maybeSingle();
+    // Check if company with this name already exists
+    const existingCompany = await prisma.insuranceCompany.findFirst({
+      where: {
+        OR: [
+          { name: { equals: name, mode: 'insensitive' } },
+          { shortName: { equals: shortName || '', mode: 'insensitive' } }
+        ]
+      }
+    });
 
     if (existingCompany) {
       return NextResponse.json(
@@ -65,21 +77,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: newCompany, error } = await supabase
-      .from('insurance_companies')
-      .insert({
+    const newCompany = await prisma.insuranceCompany.create({
+      data: {
         code,
         name,
-        short_name: shortName || null,
+        shortName: shortName || null,
         phone: phone || null,
         email: email || null
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
+      }
+    });
 
     console.log(`✅ New insurance company created: ${newCompany.name} (${newCompany.shortName})`);
 

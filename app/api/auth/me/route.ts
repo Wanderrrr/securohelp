@@ -1,49 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { NextRequest, NextResponse } from 'next/server'
+import { getUserFromToken } from '@/lib/auth'
+import { ApiResponse } from '@/types/database'
 
 export async function GET(request: NextRequest) {
   try {
-    const accessToken = request.cookies.get('sb-access-token')?.value;
-
-    if (!accessToken) {
+    const token = request.cookies.get('auth-token')?.value
+    
+    if (!token) {
       return NextResponse.json({
         success: false,
         error: 'Brak autoryzacji'
-      }, { status: 401 });
+      } as ApiResponse, { status: 401 })
     }
 
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken);
-
-    if (error || !user) {
+    const user = await getUserFromToken(token)
+    if (!user) {
       return NextResponse.json({
         success: false,
         error: 'Nieprawidłowy token'
-      }, { status: 401 });
-    }
-
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (userError || !userData) {
-      return NextResponse.json({
-        success: false,
-        error: 'Błąd pobierania danych użytkownika'
-      }, { status: 500 });
+      } as ApiResponse, { status: 401 })
     }
 
     return NextResponse.json({
       success: true,
-      data: userData
-    });
+      data: user
+    } as ApiResponse)
 
   } catch (error) {
-    console.error('Get user error:', error);
+    console.error('Get user error:', error)
     return NextResponse.json({
       success: false,
       error: 'Błąd serwera podczas pobierania danych użytkownika'
-    }, { status: 500 });
+    } as ApiResponse, { status: 500 })
   }
 }
+

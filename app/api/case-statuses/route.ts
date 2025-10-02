@@ -1,23 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { getAuthUser } from '@/lib/auth-helpers';
+import { prisma } from '@/lib/database';
+import { getUserFromToken } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
+    const token = request.cookies.get('auth-token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await getUserFromToken(token);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: statuses, error } = await supabase
-      .from('case_statuses')
-      .select('*')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
-
-    if (error) {
-      throw error;
-    }
+    const statuses = await prisma.caseStatus.findMany({
+      where: {
+        isActive: true
+      },
+      orderBy: {
+        sortOrder: 'asc'
+      }
+    });
 
     return NextResponse.json(statuses);
 
