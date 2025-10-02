@@ -82,10 +82,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           'Content-Type': 'application/json',
         },
       });
-      
+
       // Check if response is ok and content type is JSON
       if (!response.ok) {
-        console.error('Auth check failed:', response.status, response.statusText);
+        if (response.status !== 401) {
+          console.error('Auth check failed:', response.status, response.statusText);
+        }
         setUser(null);
         return;
       }
