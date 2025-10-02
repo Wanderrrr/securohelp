@@ -42,8 +42,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const data: ApiResponse = await response.json();
 
-      if (data.success && data.data) {
-        setUser(data.data.user);
+      if (data.success && data.data && data.data.user) {
+        const userData = data.data.user;
+        setUser({
+          id: userData.id,
+          email: userData.email,
+          firstName: userData.first_name,
+          lastName: userData.last_name,
+          role: userData.role,
+          isActive: userData.is_active
+        });
         return true;
       } else {
         console.error('Login failed:', data.error);
@@ -92,7 +100,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const data: ApiResponse = await response.json();
 
       if (data.success && data.data) {
-        setUser(data.data);
+        setUser({
+          id: data.data.id,
+          email: data.data.email,
+          firstName: data.data.first_name,
+          lastName: data.data.last_name,
+          role: data.data.role,
+          isActive: data.data.is_active
+        });
       } else {
         setUser(null);
       }

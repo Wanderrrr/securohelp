@@ -1,56 +1,72 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { authenticateUser, generateJWT } from '@/lib/auth'
-import { LoginCredentials, ApiResponse, JWTPayload } from '@/types/database'
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const body: LoginCredentials = await request.json()
-    const { email, password } = body
+    const body = await request.json();
+    const { email, password } = body;
 
     if (!email || !password) {
       return NextResponse.json({
         success: false,
         error: 'Email i hasło są wymagane'
-      } as ApiResponse, { status: 400 })
+      }, { status: 400 });
     }
 
-    const user = await authenticateUser(email, password)
-    if (!user) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
       return NextResponse.json({
         success: false,
         error: 'Nieprawidłowe dane logowania'
-      } as ApiResponse, { status: 401 })
+      }, { status: 401 });
     }
 
-    const payload: JWTPayload = {
-      userId: user.id,
-      email: user.email,
-      role: user.role
-    }
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', data.user.id)
+      .maybeSingle();
 
-    const token = generateJWT(payload)
+    if (userError || !userData) {
+      return NextResponse.json({
+        success: false,
+        error: 'Błąd pobierania danych użytkownika'
+      }, { status: 500 });
+    }
 
     const response = NextResponse.json({
       success: true,
-      data: { user, token },
+      data: {
+        user: userData,
+        session: data.session
+      },
       message: 'Logowanie pomyślne'
-    } as ApiResponse, { status: 200 })
+    }, { status: 200 });
 
-    // Ustaw cookie z tokenem
-    response.cookies.set('auth-token', token, {
+    response.cookies.set('sb-access-token', data.session.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 // 7 dni
-    })
+      maxAge: 7 * 24 * 60 * 60
+    });
 
-    return response
+    response.cookies.set('sb-refresh-token', data.session.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60
+    });
+
+    return response;
   } catch (error) {
-    console.error('Login error:', error)
+    console.error('Login error:', error);
     return NextResponse.json({
       success: false,
       error: 'Błąd serwera podczas logowania'
-    } as ApiResponse, { status: 500 })
+    }, { status: 500 });
   }
 }
-

@@ -1,27 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database';
-import { getUserFromToken } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const user = await getUserFromToken(token);
+    const user = await getAuthUser(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const categories = await prisma.documentCategory.findMany({
-      where: {
-        isActive: true
-      },
-      orderBy: {
-        sortOrder: 'asc'
-      }
-    });
+    const { data: categories, error } = await supabase
+      .from('document_categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      throw error;
+    }
 
     return NextResponse.json(categories, { status: 200 });
   } catch (error) {
