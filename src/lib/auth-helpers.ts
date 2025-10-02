@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSupabaseServer } from './supabase-server';
+import { verifyMockToken, getMockUserById } from './mock-auth';
 
 export async function getAuthUser(request: NextRequest) {
   const accessToken = request.cookies.get('sb-access-token')?.value;
@@ -8,18 +8,13 @@ export async function getAuthUser(request: NextRequest) {
     return null;
   }
 
-  const supabase = getSupabaseServer();
-  const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+  const tokenData = verifyMockToken(accessToken);
 
-  if (error || !user) {
+  if (!tokenData) {
     return null;
   }
 
-  const { data: userData } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .maybeSingle();
+  const user = getMockUserById(tokenData.userId);
 
-  return userData;
+  return user;
 }

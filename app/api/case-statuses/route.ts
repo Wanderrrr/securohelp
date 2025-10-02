@@ -1,24 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServer } from '@/lib/supabase-server';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { mockDataStore } from '@/lib/mock-data';
 
 export async function GET(request: NextRequest) {
-  const supabase = getSupabaseServer();
   try {
     const user = await getAuthUser(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: statuses, error } = await supabase
-      .from('case_statuses')
-      .select('*')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
-
-    if (error) {
-      throw error;
-    }
+    const statuses = mockDataStore.caseStatuses.getAll();
 
     return NextResponse.json(statuses);
 

@@ -1,23 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServer } from '@/lib/supabase-server';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { mockDataStore } from '@/lib/mock-data';
 
 export async function GET(request: NextRequest) {
-  const supabase = getSupabaseServer();
   try {
     const user = await getAuthUser(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: companies, error } = await supabase
-      .from('insurance_companies')
-      .select('*')
-      .order('name', { ascending: true });
-
-    if (error) {
-      throw error;
-    }
+    const companies = mockDataStore.insuranceCompanies.getAll();
 
     return NextResponse.json(companies);
 
@@ -31,7 +23,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = getSupabaseServer();
   try {
     const user = await getAuthUser(request);
     if (!user) {
@@ -47,45 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const baseCode = (shortName || name)
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, '')
-      .substring(0, 8);
-    const timestamp = Date.now().toString().slice(-4);
-    const code = `${baseCode}_${timestamp}`;
-
-    const { data: existingCompany } = await supabase
-      .from('insurance_companies')
-      .select('id')
-      .or(`name.ilike.${name},short_name.ilike.${shortName || ''}`)
-      .maybeSingle();
-
-    if (existingCompany) {
-      return NextResponse.json(
-        { error: 'Company with this name or short name already exists' },
-        { status: 409 }
-      );
-    }
-
-    const { data: newCompany, error } = await supabase
-      .from('insurance_companies')
-      .insert({
-        code,
-        name,
-        short_name: shortName || null,
-        phone: phone || null,
-        email: email || null
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    console.log(`✅ New insurance company created: ${newCompany.name} (${newCompany.shortName})`);
-
-    return NextResponse.json(newCompany, { status: 201 });
+    return NextResponse.json({ error: 'Not implemented' }, { status: 501 });
 
   } catch (error) {
     console.error('Insurance company creation error:', error);
